@@ -36,6 +36,7 @@ async def get_mouse_pointer(data: List[MousePoint]):
     # except Exception as e:
     #     print(f"❌ 데이터 저장 실패: {e}")
 
+    print(data)
     result:ResponseBody = Pattern_Game().get_macro_result(data)
 
     received_data:list = result.data
