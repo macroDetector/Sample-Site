@@ -36,16 +36,16 @@ async def get_mouse_pointer(data: List[MousePoint]):
     # except Exception as e:
     #     print(f"❌ 데이터 저장 실패: {e}")
 
-    print(data)
+    # print(data)
     result:ResponseBody = Pattern_Game().get_macro_result(data)
 
     received_data:list = result.data
 
-    print(received_data)
+    # print(received_data)
     
     error_mean = stats.trim_mean(received_data, proportiontocut=0.05)
     
-    print(error_mean)
+    # print(error_mean)
     return {
         "status" : 0,
         "message" : float(error_mean)
