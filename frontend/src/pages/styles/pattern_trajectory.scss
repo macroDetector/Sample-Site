@@ -1,98 +1,67 @@
-@use "sass:color";
-
 .game-wrapper {
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: transparent; // 부모 컨테이너 디자인을 따르도록 투명화
   width: 100%;
-  padding: 1rem 0;
-  
-  // 모바일 텍스트 드래그 및 길게 누르기 메뉴 방지
+  padding: 40px 0;
   user-select: none;
   -webkit-touch-callout: none;
 
   .pattern-container {
     position: relative;
     background: #ffffff;
-    user-select: none;
-    border-radius: inherit; // 부모의 굴곡을 유지
-    
-    // 모바일에서 영역 밖으로 나가는 현상 방지
-    max-width: 100%; 
-    touch-action: none; // 브라우저 기본 스크롤/줌 방지 핵심
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    touch-action: none; // 모바일 스크롤 방지 필수
 
     .grid-dot {
-      position: absolute;
-      width: 24px; // 모바일 가독성을 위해 살짝 축소
-      height: 24px;
+      width: 16px;
+      height: 16px;
       background: #f1f3f5;
       border-radius: 50%;
-      transform: translate(-50%, -50%);
-      transition: background 0.3s ease, box-shadow 0.3s ease;
-      
-      @media (max-width: 480px) {
-        width: 18px; // 더 작은 화면에서는 더 작게
-        height: 18px;
-      }
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
       &.is-target {
         background: #61c9aa;
-        box-shadow: 0 0 20px rgba(97, 201, 170, 0.5);
+        box-shadow: 0 0 20px rgba(97, 201, 170, 0.4);
+        width: 20px;
+        height: 20px;
         z-index: 2;
-        border: 2px solid #fff;
-      }
-    }
-
-    .target-pulse {
-      position: absolute;
-      width: 44px;
-      height: 44px;
-      border: 2px solid rgba(97, 201, 170, 0.4); // 타겟 색상과 통일감
-      border-radius: 50%;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      animation: target-expand 2s infinite ease-out;
-      pointer-events: none;
-
-      @media (max-width: 480px) {
-        width: 36px;
-        height: 36px;
+        border: 3px solid #fff;
       }
     }
 
     .player-ball {
-      position: absolute;
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
       z-index: 10;
       cursor: grab;
-      border: 3px solid #fff; // 공이 배경과 겹칠 때 시인성 확보
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      border: 4px solid #fff;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
       
-      // 모바일 터치 영역 확장 (실제 공보다 조금 더 넓게 인식되도록)
-      &::after {
-        content: '';
-        position: absolute;
-        top: -10px; left: -10px; right: -10px; bottom: -10px;
-      }
+      // Framer Motion과 충돌할 수 있는 transform 설정 제거
+      // position: absolute 및 top: 0, left: 0는 인라인 스타일에서 관리
 
       &:active {
         cursor: grabbing;
       }
 
+      // 터치 히트박스 확장
+      &::after {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        right: -10px;
+        bottom: -10px;
+      }
+
       @media (max-width: 480px) {
-        width: 36px;
-        height: 36px;
+        width: 38px;
+        height: 38px;
       }
     }
   }
-}
-
-@keyframes target-expand {
-  0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.8; }
-  100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
 }
