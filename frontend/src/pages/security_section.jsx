@@ -20,7 +20,7 @@ export default function Record() {
 
     const MAX_QUEUE_SIZE = 120;
     const tolerance = 0.001;
-    const isToggleMode = false; // false = 클릭 유지해야 기록  true = 클릭 한번만 해도 기록
+    const isToggleMode = false;
 
     const stop_and_clear = () => {
         setIsDragging(false);
@@ -30,7 +30,6 @@ export default function Record() {
 
     const handle_press_start = () => {
         if (isSending || isProcessing.current) return;
-
         setRecord([]);
         setScore(0);
         last_ts.current = performance.now();
@@ -46,26 +45,19 @@ export default function Record() {
     const handle_context_menu = (e) => {
         e.preventDefault();
         if (isSending || isProcessing.current) return;
-
-        if (!isDragging) {
-            handle_press_start();
-        } else {
-            stop_and_clear();
-        }
+        if (!isDragging) handle_press_start();
+        else stop_and_clear();
     };
 
     const on_handle_move = (e) => {
         if (!isDragging || isSending || isProcessing.current || record.length >= MAX_QUEUE_SIZE) return;
 
         if (areaRef.current) {
-
             const now_ts = performance.now();
             const delta = (now_ts - last_ts.current) / 1000;
 
             if (delta >= tolerance) {
-
                 const rect = areaRef.current.getBoundingClientRect();
-
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
@@ -87,65 +79,52 @@ export default function Record() {
         }
     };
 
+    // 데이터 전송
     useEffect(() => {
-
         const fetchSend = async () => {
-
             if (isProcessing.current || record.length < MAX_QUEUE_SIZE) return;
-
             try {
-
                 isProcessing.current = true;
                 setIsSending(true);
                 setIsDragging(false);
 
                 const dataToSend = [...record];
-
                 setRecord([]);
                 setScore(0);
 
                 const result = await SendData(dataToSend);
-
                 if (result !== undefined) set_Error_Mean(result);
-
             } catch (err) {
-
                 console.error("Transmission failed:", err);
-
             } finally {
-
                 setTimeout(() => {
                     setIsSending(false);
                     isProcessing.current = false;
                 }, 800);
-
             }
         };
-
         fetchSend();
-
     }, [record.length]);
+
+    // 🔹 실시간 progress 계산 (state 없이 바로 계산)
+    const currentProgress = Math.min(record.length / MAX_QUEUE_SIZE, 1);
 
     return (
         <div className="security-container">
 
             <div className="mode-selector">
-
                 <button
                     className={mode === "pattern" ? "active" : ""}
                     onClick={() => { setMode("pattern"); stop_and_clear(); }}
                 >Pattern</button>
-
                 <button
                     className={mode === "circular" ? "active" : ""}
                     onClick={() => { setMode("circular"); stop_and_clear(); }}
                 >Circular</button>
-
                 <button
                     className={mode === "drawing" ? "active" : ""}
                     onClick={() => { setMode("drawing"); stop_and_clear(); }}
                 >Drawing</button>
-
             </div>
 
             {isSending && (
@@ -167,20 +146,20 @@ export default function Record() {
                     <div className="stat-box highlighted">
                         <span className="label">POINTS</span>
                         <span className="value">{record.length} / {MAX_QUEUE_SIZE}</span>
-
                         <div className="progress-bar">
                             <div
                                 className="fill"
-                                style={{ width: `${(record.length / MAX_QUEUE_SIZE) * 100}%` }}
+                                style={{
+                                    width: `${currentProgress * 100}%`,
+                                    transition: "none" // 🔹 즉시 반영
+                                }}
                             ></div>
                         </div>
                     </div>
 
                     <div className="stat-box">
                         <span className="label">ERROR</span>
-                        <span className="value">
-                            {(Number(_error_mean) * 100).toFixed(2)} %
-                        </span>
+                        <span className="value">{(Number(_error_mean) * 100).toFixed(2)} %</span>
                     </div>
 
                 </header>
@@ -190,21 +169,13 @@ export default function Record() {
                     ref={areaRef}
                     onMouseMove={on_handle_move}
                     onTouchMove={on_handle_move}
-
-                    onMouseDown={(e) => {
-                        if (mode === "drawing" && e.button === 0) handle_press_start();
-                    }}
-
-                    onTouchStart={() => {
-                        if (mode === "drawing") handle_press_start();
-                    }}
-
+                    onMouseDown={(e) => { if (mode === "drawing" && e.button === 0) handle_press_start(); }}
+                    onTouchStart={() => { if (mode === "drawing") handle_press_start(); }}
                     onMouseUp={handle_press_end}
                     onMouseLeave={stop_and_clear}
                     onContextMenu={handle_context_menu}
                     onTouchEnd={stop_and_clear}
                 >
-
                     {mode === "pattern" && (
                         <PatternGame
                             isDragging={isDragging}
@@ -213,7 +184,6 @@ export default function Record() {
                             onStart={handle_press_start}
                         />
                     )}
-
                     {mode === "circular" && (
                         <CircularUnlock
                             isDragging={isDragging}
@@ -222,24 +192,18 @@ export default function Record() {
                             onStart={handle_press_start}
                         />
                     )}
-
                     {mode === "drawing" && (
                         <SimpleDrawing
                             isDragging={isDragging}
                             setScore={setScore}
                         />
                     )}
-
                 </main>
 
                 <footer className="security-panel">
                     <div className="status-indicator">
                         <div className={`dot ${isDragging ? 'active' : ''}`}></div>
-                        <span>
-                            {isDragging
-                                ? '수집 중 (우클릭/영역이탈 시 초기화)'
-                                : '대기 중'}
-                        </span>
+                        <span>{isDragging ? '수집 중 (우클릭/영역이탈 시 초기화)' : '대기 중'}</span>
                     </div>
                 </footer>
 
