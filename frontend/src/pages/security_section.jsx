@@ -6,11 +6,10 @@ import SimpleDrawing from "./simple_drawing";
 import "./styles/security_section.scss";
 
 export default function Record() {
-
     const [mode, setMode] = useState("pattern");
     const [isDragging, setIsDragging] = useState(false);
     const [record, setRecord] = useState([]);
-    const [score, setScore] = useState(0);
+    // score 상태 제거
     const [_error_mean, set_Error_Mean] = useState(0.0);
     const [isSending, setIsSending] = useState(false);
     const [countdown, setCountdown] = useState(null);
@@ -24,9 +23,12 @@ export default function Record() {
     const recordRef = useRef([]);
     const handle_press_end_ref = useRef(null);
 
+    const lastPosRef = useRef({ x: 0, y: 0 });
+
     const MAX_QUEUE_SIZE = 120;
     const tolerance = 0.001;
     const IDLE_TIMEOUT = 2000;
+    const MOVE_THRESHOLD = 5;
 
     const clear_countdown = () => {
         if (countdownInterval.current) {
@@ -62,18 +64,24 @@ export default function Record() {
         setIsDragging(false);
         setRecord([]);
         recordRef.current = [];
-        setScore(0);
+        // setScore(0) 제거
     };
 
-    const handle_press_start = () => {
+    const handle_press_start = (e) => {
         if (isSending || isProcessing.current) return;
         clear_idle_timer();
+
+        const clientX = e?.touches ? e.touches[0].clientX : e?.clientX;
+        const clientY = e?.touches ? e.touches[0].clientY : e?.clientY;
+        if (clientX !== undefined) {
+            lastPosRef.current = { x: clientX, y: clientY };
+        }
+
         last_ts.current = performance.now();
         isDraggingRef.current = true;
         setIsDragging(true);
     };
 
-    // 매 렌더마다 최신 함수로 교체
     handle_press_end_ref.current = async () => {
         if (!isDraggingRef.current) return;
         if (isSending || isProcessing.current) return;
@@ -94,8 +102,7 @@ export default function Record() {
 
                 setRecord([]);
                 recordRef.current = [];
-                setScore(0);
-
+                // setScore(0) 제거
             } catch (err) {
                 console.error("Transmission failed:", err);
             } finally {
@@ -126,73 +133,69 @@ export default function Record() {
     }, []);
 
     useEffect(() => {
-        return () => {
-            clear_idle_timer();
-        };
+        return () => clear_idle_timer();
     }, []);
 
     const handle_context_menu = (e) => {
         e.preventDefault();
         if (isSending || isProcessing.current) return;
-        if (!isDraggingRef.current) handle_press_start();
+        if (!isDraggingRef.current) handle_press_start(e);
         else stop_and_clear();
     };
 
     const on_handle_move = (e) => {
         if (!isDraggingRef.current || isSending || isProcessing.current) return;
 
-        clear_idle_timer();
-        idleTimer.current = setTimeout(() => {
-            stop_and_clear();
-        }, IDLE_TIMEOUT);
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        if (clientX === undefined || clientY === undefined) return;
 
-        if (areaRef.current) {
-            const now_ts = performance.now();
-            const delta = (now_ts - last_ts.current) / 1000;
+        const dist = Math.sqrt(
+            Math.pow(clientX - lastPosRef.current.x, 2) + 
+            Math.pow(clientY - lastPosRef.current.y, 2)
+        );
 
-            if (delta >= tolerance) {
-                const rect = areaRef.current.getBoundingClientRect();
-                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        if (dist > MOVE_THRESHOLD) {
+            clear_idle_timer();
+            idleTimer.current = setTimeout(() => {
+                stop_and_clear();
+            }, IDLE_TIMEOUT);
 
-                if (clientX === undefined || clientY === undefined) return;
+            lastPosRef.current = { x: clientX, y: clientY };
 
-                const newData = {
-                    timestamp: new Date().toISOString(),
-                    x: Math.round(clientX - rect.left),
-                    y: Math.round(clientY - rect.top),
-                    deltatime: Number(delta.toFixed(4))
-                };
+            if (areaRef.current) {
+                const now_ts = performance.now();
+                const delta = (now_ts - last_ts.current) / 1000;
 
-                last_ts.current = now_ts;
+                if (delta >= tolerance) {
+                    const rect = areaRef.current.getBoundingClientRect();
+                    const newData = {
+                        timestamp: new Date().toISOString(),
+                        x: Math.round(clientX - rect.left),
+                        y: Math.round(clientY - rect.top),
+                        deltatime: Number(delta.toFixed(4))
+                    };
 
-                setRecord(prev => {
-                    const next = [...prev, newData];
-                    recordRef.current = next;
-                    return next;
-                });
+                    last_ts.current = now_ts;
+
+                    setRecord(prev => {
+                        const next = [...prev, newData];
+                        recordRef.current = next;
+                        return next;
+                    });
+                }
             }
-        }
+        } 
     };
 
     const currentProgress = Math.min(record.length / MAX_QUEUE_SIZE, 1);
 
     return (
         <div className="security-container">
-
             <div className="mode-selector">
-                <button
-                    className={mode === "pattern" ? "active" : ""}
-                    onClick={() => { setMode("pattern"); stop_and_clear(); }}
-                >Pattern</button>
-                <button
-                    className={mode === "circular" ? "active" : ""}
-                    onClick={() => { setMode("circular"); stop_and_clear(); }}
-                >Circular</button>
-                <button
-                    className={mode === "drawing" ? "active" : ""}
-                    onClick={() => { setMode("drawing"); stop_and_clear(); }}
-                >Drawing</button>
+                <button className={mode === "pattern" ? "active" : ""} onClick={() => { setMode("pattern"); stop_and_clear(); }}>Pattern</button>
+                <button className={mode === "circular" ? "active" : ""} onClick={() => { setMode("circular"); stop_and_clear(); }}>Circular</button>
+                <button className={mode === "drawing" ? "active" : ""} onClick={() => { setMode("drawing"); stop_and_clear(); }}>Drawing</button>
             </div>
 
             {isSending && (
@@ -203,25 +206,13 @@ export default function Record() {
             )}
 
             <div className={`content-wrapper ${isSending ? 'blur' : ''}`}>
-
                 <header className="security-header">
-
-                    <div className="stat-box">
-                        <span className="label">SCORE</span>
-                        <span className="value">{score}</span>
-                    </div>
-
+                    {/* SCORE stat-box 제거 */}
                     <div className="stat-box highlighted">
                         <span className="label">POINTS</span>
                         <span className="value">{record.length} / {MAX_QUEUE_SIZE}</span>
                         <div className="progress-bar">
-                            <div
-                                className="fill"
-                                style={{
-                                    width: `${currentProgress * 100}%`,
-                                    transition: "none"
-                                }}
-                            ></div>
+                            <div className="fill" style={{ width: `${currentProgress * 100}%`, transition: "none" }}></div>
                         </div>
                     </div>
 
@@ -229,7 +220,6 @@ export default function Record() {
                         <span className="label">ERROR</span>
                         <span className="value">{(Number(_error_mean) * 100).toFixed(2)} %</span>
                     </div>
-
                 </header>
 
                 <main
@@ -237,63 +227,37 @@ export default function Record() {
                     ref={areaRef}
                     onMouseMove={on_handle_move}
                     onTouchMove={on_handle_move}
-                    onMouseDown={(e) => { if (mode === "drawing" && e.button === 0) handle_press_start(); }}
-                    onTouchStart={() => { if (mode === "drawing") handle_press_start(); }}
+                    onMouseDown={(e) => { if (mode === "drawing" && e.button === 0) handle_press_start(e); }}
+                    onTouchStart={(e) => { if (mode === "drawing") handle_press_start(e); }}
                     onContextMenu={handle_context_menu}
                 >
-                    {mode === "pattern" && (
-                        <PatternGame
-                            isDragging={isDragging}
-                            setIsDragging={setIsDragging}
-                            setScore={setScore}
-                            onStart={handle_press_start}
-                        />
-                    )}
-                    {mode === "circular" && (
-                        <CircularUnlock
-                            isDragging={isDragging}
-                            setIsDragging={setIsDragging}
-                            setScore={setScore}
-                            onStart={handle_press_start}
-                        />
-                    )}
-                    {mode === "drawing" && (
-                        <SimpleDrawing
-                            isDragging={isDragging}
-                            setScore={setScore}
-                        />
-                    )}
+                    {/* 하위 컴포넌트들에서 setScore prop 제거 */}
+                    {mode === "pattern" && <PatternGame isDragging={isDragging} setIsDragging={setIsDragging} onStart={handle_press_start} />}
+                    {mode === "circular" && <CircularUnlock isDragging={isDragging} setIsDragging={setIsDragging} onStart={handle_press_start} />}
+                    {mode === "drawing" && <SimpleDrawing isDragging={isDragging} />}
                 </main>
 
                 <footer className="security-panel">
-                    {/* 상태 표시 영역 */}
                     <div className="status-indicator">
                         <div className={`dot ${isDragging ? 'active' : ''}`}></div>
                         <div className="status-text">
-                            <span>
-                                {isDragging 
-                                    ? '수집 중 (우클릭으로 초기화)' 
-                                    : '대기 중'}
-                            </span>
+                            <span>{isDragging ? '수집 중 (움직임 없으면 초기화)' : '대기 중'}</span>
                             {!isDragging && countdown !== null && countdown > 0 && (
                                 <span className="countdown-text">{countdown}ms 후 초기화</span>
                             )}
                         </div>
                     </div>
 
-                    {/* 매크로 의심 기준 영역 */}
                     <div className="macro-criteria">
                         <h4>매크로 판단 기준</h4>
                         <ul>
                             <li>110% 이상 → 이상치 의심 (매크로 판단)</li>
-                            <li>90% ~ 109% → 매크로 의심 (재요청 시 유지하면 매크로)</li>
+                            <li>90% ~ 109% → 매크로 의심</li>
                             <li>80% ~ 89% → 경계선</li>
                             <li>80% 이하 → 정상 휴먼</li>
                         </ul>
                     </div>
                 </footer>
-
-
             </div>
         </div>
     );
