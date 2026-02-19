@@ -5,7 +5,6 @@ import "./styles/circular_lock.scss";
 export default function CircularUnlock({
     isDragging,
     setIsDragging,
-    setScore,
     onStart
 }) {
 
@@ -29,11 +28,6 @@ export default function CircularUnlock({
         const cy = info.point.y - rect.top - rect.height / 2;
 
         let cur = (Math.atan2(cy, cx) * (180 / Math.PI) + 90 + 360) % 360;
-
-        // 한 바퀴 돌면 점수 증가
-        if (lastAngle.current > 300 && cur < 60) {
-            setScore(s => s + 1);
-        }
 
         lastAngle.current = cur;
 

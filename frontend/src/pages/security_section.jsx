@@ -9,7 +9,6 @@ export default function Record() {
     const [mode, setMode] = useState("pattern");
     const [isDragging, setIsDragging] = useState(false);
     const [record, setRecord] = useState([]);
-    // score 상태 제거
     const [_error_mean, set_Error_Mean] = useState(0.0);
     const [isSending, setIsSending] = useState(false);
     const [countdown, setCountdown] = useState(null);
@@ -23,12 +22,13 @@ export default function Record() {
     const recordRef = useRef([]);
     const handle_press_end_ref = useRef(null);
 
+    // 모바일/마우스 미세 움직임 필터링을 위한 참조값
     const lastPosRef = useRef({ x: 0, y: 0 });
 
     const MAX_QUEUE_SIZE = 120;
     const tolerance = 0.001;
     const IDLE_TIMEOUT = 2000;
-    const MOVE_THRESHOLD = 5;
+    const MOVE_THRESHOLD = 5; // 5px 이상 움직여야 데이터로 인정
 
     const clear_countdown = () => {
         if (countdownInterval.current) {
@@ -64,13 +64,13 @@ export default function Record() {
         setIsDragging(false);
         setRecord([]);
         recordRef.current = [];
-        // setScore(0) 제거
     };
 
     const handle_press_start = (e) => {
         if (isSending || isProcessing.current) return;
         clear_idle_timer();
 
+        // 시작 시점 좌표 저장
         const clientX = e?.touches ? e.touches[0].clientX : e?.clientX;
         const clientY = e?.touches ? e.touches[0].clientY : e?.clientY;
         if (clientX !== undefined) {
@@ -102,7 +102,7 @@ export default function Record() {
 
                 setRecord([]);
                 recordRef.current = [];
-                // setScore(0) 제거
+
             } catch (err) {
                 console.error("Transmission failed:", err);
             } finally {
@@ -112,6 +112,7 @@ export default function Record() {
                 }, 800);
             }
         } else if (currentRecord.length > 0) {
+            // 데이터가 모자란 상태에서 손을 떼면 카운트다운 시작
             start_countdown();
             idleTimer.current = setTimeout(() => {
                 stop_and_clear();
@@ -150,12 +151,15 @@ export default function Record() {
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         if (clientX === undefined || clientY === undefined) return;
 
+        // 이동 거리 계산 (피타고라스)
         const dist = Math.sqrt(
             Math.pow(clientX - lastPosRef.current.x, 2) + 
             Math.pow(clientY - lastPosRef.current.y, 2)
         );
 
+        // 유의미한 이동(MOVE_THRESHOLD px)이 있을 때만 로직 실행
         if (dist > MOVE_THRESHOLD) {
+            // 움직임이 감지되었으므로 타이머 리셋 (초기화 방지)
             clear_idle_timer();
             idleTimer.current = setTimeout(() => {
                 stop_and_clear();
@@ -178,6 +182,7 @@ export default function Record() {
 
                     last_ts.current = now_ts;
 
+                    // 이 안에서 record가 업데이트되므로 dist가 작으면 record도, score도 오르지 않음
                     setRecord(prev => {
                         const next = [...prev, newData];
                         recordRef.current = next;
@@ -186,6 +191,8 @@ export default function Record() {
                 }
             }
         } 
+        // dist <= MOVE_THRESHOLD 면 타이머를 clear하지 않으므로 
+        // 가만히 대고 있으면 2초 뒤 stop_and_clear()가 호출되어 score와 record가 초기화됩니다.
     };
 
     const currentProgress = Math.min(record.length / MAX_QUEUE_SIZE, 1);
@@ -207,7 +214,6 @@ export default function Record() {
 
             <div className={`content-wrapper ${isSending ? 'blur' : ''}`}>
                 <header className="security-header">
-                    {/* SCORE stat-box 제거 */}
                     <div className="stat-box highlighted">
                         <span className="label">POINTS</span>
                         <span className="value">{record.length} / {MAX_QUEUE_SIZE}</span>
@@ -231,10 +237,9 @@ export default function Record() {
                     onTouchStart={(e) => { if (mode === "drawing") handle_press_start(e); }}
                     onContextMenu={handle_context_menu}
                 >
-                    {/* 하위 컴포넌트들에서 setScore prop 제거 */}
                     {mode === "pattern" && <PatternGame isDragging={isDragging} setIsDragging={setIsDragging} onStart={handle_press_start} />}
                     {mode === "circular" && <CircularUnlock isDragging={isDragging} setIsDragging={setIsDragging} onStart={handle_press_start} />}
-                    {mode === "drawing" && <SimpleDrawing isDragging={isDragging} />}
+                    {mode === "drawing" && <SimpleDrawing isDragging={isDragging}  />}
                 </main>
 
                 <footer className="security-panel">

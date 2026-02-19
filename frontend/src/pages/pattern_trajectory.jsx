@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { motion, useMotionValue, animate } from "framer-motion";
 import "./styles/pattern_trajectory.scss";
 
-export default function PatternGame({ isDragging, setIsDragging, setScore, onStart }) {
+export default function PatternGame({ isDragging, setIsDragging, onStart }) {
   const containerRef = useRef(null);
   const [targetIdx, setTargetIdx] = useState(4);
   const targetIdxRef = useRef(targetIdx);
@@ -108,7 +108,6 @@ export default function PatternGame({ isDragging, setIsDragging, setScore, onSta
 
       if (dist < 30 && !isUpdating.current) {
         isUpdating.current = true;
-        setScore((s) => s + 1);
         setTargetIdx((prev) => {
           let next;
           do {
@@ -125,7 +124,7 @@ export default function PatternGame({ isDragging, setIsDragging, setScore, onSta
       unsubX();
       unsubY();
     };
-  }, [gridPoints, isDragging, mX, mY, setScore]);
+  }, [gridPoints, isDragging, mX, mY]);
 
   return (
     <div className="game-wrapper">

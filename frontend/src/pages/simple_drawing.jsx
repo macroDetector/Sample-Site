@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-export default function SimpleDrawing({ isDragging, setScore }) {
+export default function SimpleDrawing({ isDragging }) {
 
     const [currentPath, setCurrentPath] = useState("");
 
@@ -27,7 +27,6 @@ export default function SimpleDrawing({ isDragging, setScore }) {
             setCurrentPath(`M ${newPoint}`);
         } else {
             setCurrentPath(prev => `${prev} L ${newPoint}`);
-            setScore(prev => prev + 1);
         }
 
     };
