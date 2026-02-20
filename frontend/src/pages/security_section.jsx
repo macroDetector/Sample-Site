@@ -6,56 +6,33 @@ import SimpleDrawing from "./simple_drawing";
 import "./styles/security_section.scss";
 
 export default function Record() {
+
     const [mode, setMode] = useState("pattern");
     const [isDragging, setIsDragging] = useState(false);
     const [record, setRecord] = useState([]);
     const [_error_mean, set_Error_Mean] = useState(0.0);
     const [isSending, setIsSending] = useState(false);
-    const [countdown, setCountdown] = useState(null);
 
     const areaRef = useRef(null);
     const last_ts = useRef(performance.now());
     const isProcessing = useRef(false);
     const idleTimer = useRef(null);
-    const countdownInterval = useRef(null);
     const isDraggingRef = useRef(false);
     const recordRef = useRef([]);
     const handle_press_end_ref = useRef(null);
 
-    // 모바일/마우스 미세 움직임 필터링을 위한 참조값
     const lastPosRef = useRef({ x: 0, y: 0 });
 
     const MAX_QUEUE_SIZE = 120;
     const tolerance = 0.001;
     const IDLE_TIMEOUT = 2000;
-    const MOVE_THRESHOLD = 5; // 5px 이상 움직여야 데이터로 인정
-
-    const clear_countdown = () => {
-        if (countdownInterval.current) {
-            clearInterval(countdownInterval.current);
-            countdownInterval.current = null;
-        }
-        setCountdown(null);
-    };
-
-    const start_countdown = () => {
-        clear_countdown();
-        const start = performance.now();
-        setCountdown(IDLE_TIMEOUT);
-        countdownInterval.current = setInterval(() => {
-            const elapsed = performance.now() - start;
-            const remaining = Math.max(0, Math.ceil(IDLE_TIMEOUT - elapsed));
-            setCountdown(remaining);
-            if (remaining <= 0) clear_countdown();
-        }, 50);
-    };
+    const MOVE_THRESHOLD = 5;
 
     const clear_idle_timer = () => {
         if (idleTimer.current) {
             clearTimeout(idleTimer.current);
             idleTimer.current = null;
         }
-        clear_countdown();
     };
 
     const stop_and_clear = () => {
@@ -66,13 +43,21 @@ export default function Record() {
         recordRef.current = [];
     };
 
+    const start_idle_timer = () => {
+        clear_idle_timer();
+        idleTimer.current = setTimeout(() => {
+            stop_and_clear();
+        }, IDLE_TIMEOUT);
+    };
+
     const handle_press_start = (e) => {
         if (isSending || isProcessing.current) return;
+
         clear_idle_timer();
 
-        // 시작 시점 좌표 저장
         const clientX = e?.touches ? e.touches[0].clientX : e?.clientX;
         const clientY = e?.touches ? e.touches[0].clientY : e?.clientY;
+
         if (clientX !== undefined) {
             lastPosRef.current = { x: clientX, y: clientY };
         }
@@ -80,15 +65,17 @@ export default function Record() {
         last_ts.current = performance.now();
         isDraggingRef.current = true;
         setIsDragging(true);
+
+        // 🔥 움직임 없으면 2초 후 초기화
+        start_idle_timer();
     };
 
     handle_press_end_ref.current = async () => {
+
         if (!isDraggingRef.current) return;
         if (isSending || isProcessing.current) return;
 
         clear_idle_timer();
-        isDraggingRef.current = false;
-        setIsDragging(false);
 
         const currentRecord = recordRef.current;
 
@@ -100,9 +87,6 @@ export default function Record() {
                 const result = await SendData(currentRecord);
                 if (result !== undefined) set_Error_Mean(result);
 
-                setRecord([]);
-                recordRef.current = [];
-
             } catch (err) {
                 console.error("Transmission failed:", err);
             } finally {
@@ -111,16 +95,14 @@ export default function Record() {
                     isProcessing.current = false;
                 }, 800);
             }
-        } else if (currentRecord.length > 0) {
-            // 데이터가 모자란 상태에서 손을 떼면 카운트다운 시작
-            start_countdown();
-            idleTimer.current = setTimeout(() => {
-                stop_and_clear();
-            }, IDLE_TIMEOUT);
         }
+
+        // 🔥 손 떼면 즉시 초기화
+        stop_and_clear();
     };
 
     useEffect(() => {
+
         const onWindowMouseUp = () => handle_press_end_ref.current();
         const onWindowTouchEnd = () => handle_press_end_ref.current();
 
@@ -131,6 +113,7 @@ export default function Record() {
             window.removeEventListener("mouseup", onWindowMouseUp);
             window.removeEventListener("touchend", onWindowTouchEnd);
         };
+
     }, []);
 
     useEffect(() => {
@@ -138,41 +121,45 @@ export default function Record() {
     }, []);
 
     const handle_context_menu = (e) => {
+
         e.preventDefault();
+
         if (isSending || isProcessing.current) return;
+
         if (!isDraggingRef.current) handle_press_start(e);
         else stop_and_clear();
     };
 
     const on_handle_move = (e) => {
+
         if (!isDraggingRef.current || isSending || isProcessing.current) return;
 
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
         if (clientX === undefined || clientY === undefined) return;
 
-        // 이동 거리 계산 (피타고라스)
         const dist = Math.sqrt(
-            Math.pow(clientX - lastPosRef.current.x, 2) + 
+            Math.pow(clientX - lastPosRef.current.x, 2) +
             Math.pow(clientY - lastPosRef.current.y, 2)
         );
 
-        // 유의미한 이동(MOVE_THRESHOLD px)이 있을 때만 로직 실행
         if (dist > MOVE_THRESHOLD) {
-            // 움직임이 감지되었으므로 타이머 리셋 (초기화 방지)
-            clear_idle_timer();
-            idleTimer.current = setTimeout(() => {
-                stop_and_clear();
-            }, IDLE_TIMEOUT);
+
+            // 🔥 움직임 발생 → idle timer 리셋
+            start_idle_timer();
 
             lastPosRef.current = { x: clientX, y: clientY };
 
             if (areaRef.current) {
+
                 const now_ts = performance.now();
                 const delta = (now_ts - last_ts.current) / 1000;
 
                 if (delta >= tolerance) {
+
                     const rect = areaRef.current.getBoundingClientRect();
+
                     const newData = {
                         timestamp: new Date().toISOString(),
                         x: Math.round(clientX - rect.left),
@@ -182,7 +169,6 @@ export default function Record() {
 
                     last_ts.current = now_ts;
 
-                    // 이 안에서 record가 업데이트되므로 dist가 작으면 record도, score도 오르지 않음
                     setRecord(prev => {
                         const next = [...prev, newData];
                         recordRef.current = next;
@@ -190,15 +176,14 @@ export default function Record() {
                     });
                 }
             }
-        } 
-        // dist <= MOVE_THRESHOLD 면 타이머를 clear하지 않으므로 
-        // 가만히 대고 있으면 2초 뒤 stop_and_clear()가 호출되어 score와 record가 초기화됩니다.
+        }
     };
 
     const currentProgress = Math.min(record.length / MAX_QUEUE_SIZE, 1);
 
     return (
         <div className="security-container">
+
             <div className="mode-selector">
                 <button className={mode === "pattern" ? "active" : ""} onClick={() => { setMode("pattern"); stop_and_clear(); }}>Pattern</button>
                 <button className={mode === "circular" ? "active" : ""} onClick={() => { setMode("circular"); stop_and_clear(); }}>Circular</button>
@@ -213,19 +198,31 @@ export default function Record() {
             )}
 
             <div className={`content-wrapper ${isSending ? 'blur' : ''}`}>
+
                 <header className="security-header">
+
                     <div className="stat-box highlighted">
                         <span className="label">POINTS</span>
                         <span className="value">{record.length} / {MAX_QUEUE_SIZE}</span>
+
                         <div className="progress-bar">
-                            <div className="fill" style={{ width: `${currentProgress * 100}%`, transition: "none" }}></div>
+                            <div
+                                className="fill"
+                                style={{
+                                    width: `${currentProgress * 100}%`,
+                                    transition: "none"
+                                }}
+                            />
                         </div>
                     </div>
 
                     <div className="stat-box">
                         <span className="label">ERROR</span>
-                        <span className="value">{(Number(_error_mean) * 100).toFixed(2)} %</span>
+                        <span className="value">
+                            {(Number(_error_mean) * 100).toFixed(2)} %
+                        </span>
                     </div>
+
                 </header>
 
                 <main
@@ -237,19 +234,41 @@ export default function Record() {
                     onTouchStart={(e) => { if (mode === "drawing") handle_press_start(e); }}
                     onContextMenu={handle_context_menu}
                 >
-                    {mode === "pattern" && <PatternGame isDragging={isDragging} setIsDragging={setIsDragging} onStart={handle_press_start} />}
-                    {mode === "circular" && <CircularUnlock isDragging={isDragging} setIsDragging={setIsDragging} onStart={handle_press_start} />}
-                    {mode === "drawing" && <SimpleDrawing isDragging={isDragging}  />}
+
+                    {mode === "pattern" &&
+                        <PatternGame
+                            isDragging={isDragging}
+                            setIsDragging={setIsDragging}
+                            onStart={handle_press_start}
+                        />
+                    }
+
+                    {mode === "circular" &&
+                        <CircularUnlock
+                            isDragging={isDragging}
+                            setIsDragging={setIsDragging}
+                            onStart={handle_press_start}
+                        />
+                    }
+
+                    {mode === "drawing" &&
+                        <SimpleDrawing
+                            isDragging={isDragging}
+                        />
+                    }
+
                 </main>
 
                 <footer className="security-panel">
+
                     <div className="status-indicator">
-                        <div className={`dot ${isDragging ? 'active' : ''}`}></div>
+                        <div className={`dot ${isDragging ? 'active' : ''}`} />
                         <div className="status-text">
-                            <span>{isDragging ? '수집 중 (움직임 없으면 초기화)' : '대기 중'}</span>
-                            {!isDragging && countdown !== null && countdown > 0 && (
-                                <span className="countdown-text">{countdown}ms 후 초기화</span>
-                            )}
+                            <span>
+                                {isDragging
+                                    ? '수집 중 (2초 움직임 없으면 초기화)'
+                                    : '대기 중'}
+                            </span>
                         </div>
                     </div>
 
@@ -262,7 +281,9 @@ export default function Record() {
                             <li>80% 이하 → 정상 휴먼</li>
                         </ul>
                     </div>
+
                 </footer>
+
             </div>
         </div>
     );
