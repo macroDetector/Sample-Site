@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from typing import List
 import os
 import json
@@ -15,7 +15,7 @@ router = APIRouter()
 #     os.makedirs(SAVE_DIR, exist_ok=True)
 
 @router.post("/get_points")
-async def get_mouse_pointer(data: List[MousePoint]):   
+async def get_mouse_pointer(request: Request, data: List[MousePoint]):   
     # try:
     #     json_ready_data = [
     #         {
@@ -37,7 +37,8 @@ async def get_mouse_pointer(data: List[MousePoint]):
     #     print(f"❌ 데이터 저장 실패: {e}")
 
     # print(data)
-    result:ResponseBody = Pattern_Game().get_macro_result(data)
+    game: Pattern_Game = request.app.state.pattern_game
+    result:ResponseBody = game.get_macro_result(data)
 
     print(result)
     received_data:list = result.data

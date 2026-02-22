@@ -4,6 +4,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from app.core.settings import settings
 from app.api import record_send, record_send_live
 from contextlib import asynccontextmanager
+from QMacroDetector import Pattern_Game
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -11,6 +12,7 @@ async def lifespan(app: FastAPI):
     print("🚀 서버를 시작합니다. AI 모델을 로드 중...")
     
     try:
+        app.state.pattern_game = Pattern_Game()
         print("✅ 모델 로드 완료")
     except Exception as e:
         print(f"❌ 모델 로드 실패: {e}")

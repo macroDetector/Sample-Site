@@ -23,7 +23,7 @@ export default function Record() {
 
     const lastPosRef = useRef({ x: 0, y: 0 });
 
-    const MAX_QUEUE_SIZE = 120;
+    const MAX_QUEUE_SIZE = 90;
     const tolerance = 0.001;
     const IDLE_TIMEOUT = 2000;
     const MOVE_THRESHOLD = 5;
