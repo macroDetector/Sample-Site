@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from QMacroDetector import Pattern_Game
 
 # /api/get_points 호출
-# python -m uvicorn main:app --host 0.0.0.0 --port 8300 --reload
+# 실행부 -> python -m uvicorn main:app --host 0.0.0.0 --port 8300 --reload
 # 8300번
 # http -> 8300 /api/get_points
 # 같은 서버 호출 http://localhost:8300/api/get_points
