@@ -2,9 +2,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from app.core.settings import settings
-from app.api import record_send, record_send_live
+from app.api import record_send
 from contextlib import asynccontextmanager
 from QMacroDetector import Pattern_Game
+
+# /api/get_points 호출
+# python -m uvicorn main:app --host 0.0.0.0 --port 8300 --reload
+# 8300번
+# http -> 8300 /api/get_points
+# 같은 서버 호출 http://localhost:8300/api/get_points
+# 같은 서버에 올려야 트래픽 제한 거의 없음!
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,4 +40,3 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.include_router(record_send.router, prefix="/api")
-app.include_router(record_send_live.router, prefix="/ws")
